@@ -44,8 +44,12 @@ jobs:
           echo "Conteúdo extraído:"
           find projeto -maxdepth 4 -type f | head -n 100
 
-      - name: Configurar Android SDK
+       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11076708'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
 
       - name: Configurar Gradle 8.9
         uses: gradle/actions/setup-gradle@v4

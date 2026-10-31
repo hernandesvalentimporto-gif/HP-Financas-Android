@@ -11,136 +11,57 @@ permissions:
 
 jobs:
   build:
-    name: Compilar HP Finanças
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar repositório
+      - name: Baixar arquivos do repositório
         uses: actions/checkout@v4
 
-      - name: Preparar Java 17
+      - name: Preparar Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Extrair projeto ZIP
-        shell: bash
+      - name: Localizar e extrair o ZIP correto
         run: |
-          set -e
+          ZIP="./HP_Financas_Projeto_ICONe_FARIA_LIMA.zip"
 
-          mkdir -p projeto
-
-          ZIP=$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)
-
-          if [ -z "$ZIP" ]; then
-            echo "::error::Nenhum arquivo ZIP encontrado na raiz."
+          if [ ! -f "$ZIP" ]; then
+            echo "ERRO: ZIP novo não encontrado na raiz do repositório."
             exit 1
           fi
 
-          echo "ZIP encontrado: $ZIP"
-          unzip -o "$ZIP" -d projeto
+          mkdir -p /tmp/hp-project
+          unzip -q "$ZIP" -d /tmp/hp-project
 
-          echo "Arquivos do projeto:"
-          find projeto -maxdepth 4 -type f | head -n 100
+          SETTINGS=$(find /tmp/hp-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
 
-      - name: Configurar Android SDK
-        shell: bash
-        run: |
-          set -e
-
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-
-          if [ ! -d "$SDK" ]; then
-            echo "::error::Diretório do Android SDK não encontrado: $SDK"
+          if [ -z "$SETTINGS" ]; then
+            echo "ERRO: o ZIP não contém settings.gradle ou settings.gradle.kts."
             exit 1
           fi
 
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+          echo "Projeto selecionado: $(dirname "$SETTINGS")"
 
-          SDKMANAGER=$(find "$SDK/cmdline-tools" \
-            -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)
+      - name: Instalar Android SDK
+        uses: android-actions/setup-android@v3
 
-          if [ -z "$SDKMANAGER" ]; then
-            echo "::error::Não foi encontrado o sdkmanager no Android SDK."
-            exit 1
-          fi
+      - name: Instalar plataforma Android
+        run: sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
 
-          echo "Utilizando: $SDKMANAGER"
-
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-
-          "$SDKMANAGER" --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Configurar Gradle 8.9
+      - name: Instalar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Localizar projeto Android
-        id: projeto
-        shell: bash
-        run: |
-          set -e
-
-          ARQUIVO=$(find projeto -type f \
-            \( -name settings.gradle -o -name settings.gradle.kts \) \
-            -print -quit)
-
-          if [ -z "$ARQUIVO" ]; then
-            echo "::error::O ZIP não contém settings.gradle ou settings.gradle.kts."
-            exit 1
-          fi
-
-          RAIZ=$(dirname "$ARQUIVO")
-
-          echo "dir=$RAIZ" >> "$GITHUB_OUTPUT"
-          echo "Projeto localizado em: $RAIZ"
-
-          if [ ! -f "$RAIZ/app/build.gradle" ] && \
-             [ ! -f "$RAIZ/app/build.gradle.kts" ]; then
-            echo "::warning::Não foi encontrado o arquivo Gradle do módulo app no caminho esperado."
-          fi
-
       - name: Compilar APK
-        shell: bash
-        run: |
-          set -e
+        run: gradle -p "$PROJECT_DIR" assembleDebug --no-daemon
 
-          cd "${{ steps.projeto.outputs.dir }}"
-
-          gradle --version
-          gradle assembleDebug --stacktrace
-
-      - name: Verificar APK gerado
-        shell: bash
-        run: |
-          set -e
-
-          RAIZ="${{ steps.projeto.outputs.dir }}"
-
-          APK=$(find "$RAIZ" -type f \
-            -path '*/build/outputs/apk/debug/*.apk' \
-            -print -quit)
-
-          if [ -z "$APK" ]; then
-            echo "::error::A compilação terminou sem gerar o APK."
-            exit 1
-          fi
-
-          mkdir -p entrega
-          cp "$APK" entrega/HP-Financas.apk
-
-          echo "APK gerado com sucesso."
-
-      - name: Disponibilizar APK para download
+      - name: Disponibilizar APK para baixar
         uses: actions/upload-artifact@v4
         with:
           name: HP-Financas-APK
-          path: entrega/HP-Financas.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 7

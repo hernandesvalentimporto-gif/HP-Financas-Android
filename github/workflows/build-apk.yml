@@ -1,0 +1,50 @@
+name: Gerar APK HP Finanças
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extrair projeto ZIP
+        run: |
+          mkdir -p projeto
+          ZIP=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "ERRO: nenhum ZIP encontrado na raiz do repositório."
+            exit 1
+          fi
+          unzip -q "$ZIP" -d projeto
+          find projeto -name settings.gradle -type f
+
+      - name: Configurar Android
+        uses: android-actions/setup-android@v3
+
+      - name: Compilar APK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gradle
+          ROOT=$(find projeto -name settings.gradle -type f | head -n 1 | xargs dirname)
+          cd "$ROOT"
+          gradle assembleDebug
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HP-Financas-APK
+          path: projeto/**/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

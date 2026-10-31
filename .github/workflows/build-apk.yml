@@ -12,6 +12,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
 
     steps:
       - name: Baixar arquivos do repositório
@@ -39,17 +41,18 @@ jobs:
           SETTINGS=$(find /tmp/hp-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERRO: arquivo settings.gradle não encontrado."
+            echo "ERRO: settings.gradle não encontrado no ZIP."
             exit 1
           fi
 
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
           echo "Projeto encontrado: $(dirname "$SETTINGS")"
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools, platforms;android-35, build-tools;35.0.0'
+      - name: Verificar Android SDK instalado
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          ls "$ANDROID_HOME"
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4

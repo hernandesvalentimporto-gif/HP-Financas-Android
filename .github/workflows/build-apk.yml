@@ -24,32 +24,57 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Localizar e extrair projeto
+      - name: Extrair projeto ZIP
         shell: bash
         run: |
           set -e
 
           mkdir -p projeto
 
-          ZIP=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+          ZIP=$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "::error::Nenhum arquivo ZIP encontrado na raiz do repositório."
+            echo "::error::Nenhum arquivo ZIP encontrado na raiz."
             exit 1
           fi
 
-          echo "Arquivo encontrado: $ZIP"
+          echo "ZIP encontrado: $ZIP"
           unzip -o "$ZIP" -d projeto
 
-          echo "Conteúdo extraído:"
+          echo "Arquivos do projeto:"
           find projeto -maxdepth 4 -type f | head -n 100
 
-       - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: '11076708'
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-          accept-android-sdk-licenses: true
+      - name: Configurar Android SDK
+        shell: bash
+        run: |
+          set -e
+
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+
+          if [ ! -d "$SDK" ]; then
+            echo "::error::Diretório do Android SDK não encontrado: $SDK"
+            exit 1
+          fi
+
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+
+          SDKMANAGER=$(find "$SDK/cmdline-tools" \
+            -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::Não foi encontrado o sdkmanager no Android SDK."
+            exit 1
+          fi
+
+          echo "Utilizando: $SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Configurar Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
@@ -62,27 +87,27 @@ jobs:
         run: |
           set -e
 
-          ROOT=$(find projeto -type f \
+          ARQUIVO=$(find projeto -type f \
             \( -name settings.gradle -o -name settings.gradle.kts \) \
             -print -quit)
 
-          if [ -z "$ROOT" ]; then
-            echo "::error::Não foi encontrado settings.gradle ou settings.gradle.kts dentro do ZIP."
+          if [ -z "$ARQUIVO" ]; then
+            echo "::error::O ZIP não contém settings.gradle ou settings.gradle.kts."
             exit 1
           fi
 
-          ROOT=$(dirname "$ROOT")
-          echo "dir=$ROOT" >> "$GITHUB_OUTPUT"
+          RAIZ=$(dirname "$ARQUIVO")
 
-          echo "Projeto Android localizado em: $ROOT"
+          echo "dir=$RAIZ" >> "$GITHUB_OUTPUT"
+          echo "Projeto localizado em: $RAIZ"
 
-          if [ ! -f "$ROOT/gradlew" ]; then
-            echo "Não existe gradlew. Será utilizado o Gradle instalado."
+          if [ ! -f "$RAIZ/app/build.gradle" ] && \
+             [ ! -f "$RAIZ/app/build.gradle.kts" ]; then
+            echo "::warning::Não foi encontrado o arquivo Gradle do módulo app no caminho esperado."
           fi
 
       - name: Compilar APK
         shell: bash
-        working-directory: .
         run: |
           set -e
 
@@ -96,18 +121,21 @@ jobs:
         run: |
           set -e
 
-          APK=$(find "${{ steps.projeto.outputs.dir }}" \
-            -type f -path '*/build/outputs/apk/debug/*.apk' \
+          RAIZ="${{ steps.projeto.outputs.dir }}"
+
+          APK=$(find "$RAIZ" -type f \
+            -path '*/build/outputs/apk/debug/*.apk' \
             -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "::error::A compilação terminou sem gerar um APK de depuração."
+            echo "::error::A compilação terminou sem gerar o APK."
             exit 1
           fi
 
-          echo "APK gerado: $APK"
           mkdir -p entrega
           cp "$APK" entrega/HP-Financas.apk
+
+          echo "APK gerado com sucesso."
 
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4

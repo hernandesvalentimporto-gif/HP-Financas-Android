@@ -24,11 +24,12 @@ jobs:
           java-version: '17'
 
       - name: Localizar e extrair o ZIP correto
+        shell: bash
         run: |
           ZIP="./HP_Financas_Projeto_ICONe_FARIA_LIMA.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERRO: ZIP novo não encontrado na raiz do repositório."
+            echo "ERRO: ZIP novo não encontrado."
             exit 1
           fi
 
@@ -38,20 +39,19 @@ jobs:
           SETTINGS=$(find /tmp/hp-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERRO: o ZIP não contém settings.gradle ou settings.gradle.kts."
+            echo "ERRO: arquivo settings.gradle não encontrado."
             exit 1
           fi
 
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
-          echo "Projeto selecionado: $(dirname "$SETTINGS")"
+          echo "Projeto encontrado: $(dirname "$SETTINGS")"
 
-      - name: Instalar Android SDK
+      - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools, platforms;android-35, build-tools;35.0.0'
 
-      - name: Instalar plataforma Android
-        run: sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
-
-      - name: Instalar Gradle
+      - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -59,7 +59,7 @@ jobs:
       - name: Compilar APK
         run: gradle -p "$PROJECT_DIR" assembleDebug --no-daemon
 
-      - name: Disponibilizar APK para baixar
+      - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: HP-Financas-APK

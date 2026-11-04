@@ -1,0 +1,27 @@
+name: Publicar site HP Finanças por FTP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar arquivos corrigidos
+        uses: actions/checkout@v4
+
+      - name: Publicar alterações PHP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./deploy/controle_pessoal/
+          server-dir: ./controle_pessoal/
+          dangerous-clean-slate: false
+          log-level: minimal

@@ -24,7 +24,7 @@ jobs:
           set -euo pipefail
           mkdir -p site
           chmod 700 site
-          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "ftp://$FTP_HOST" <<'LFTP'
+          lftp -u "${FTP_USERNAME},${FTP_PASSWORD}" "ftp://$FTP_HOST" <<'LFTP'
           set cmd:fail-exit yes
           set net:max-retries 2
           set net:timeout 20s

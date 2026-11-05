@@ -10,7 +10,7 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     env:
-      FTP_HOST: ftp.sistemashp.com.br
+      FTP_HOST: ${{ secrets.FTP_SERVER }}
       FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
       REMOTE_PATH: controle_pessoal

@@ -24,21 +24,13 @@ jobs:
           set -euo pipefail
           mkdir -p site
           chmod 700 site
-          lftp "ftp://$FTP_HOST" <<LFTP
-          set cmd:fail-exit yes
-          set net:max-retries 2
-          set net:timeout 20s
-          set ftp:passive-mode true
-          set ftp:ssl-force false
-          set ftp:ssl-protect-data false
-          set cmd:trace true
-          debug 3
-          user "$FTP_USERNAME" "$FTP_PASSWORD"
-          pwd
-          ls -la
-          mirror --verbose --continue --no-perms "$REMOTE_PATH" site
-          bye
-          LFTP
+          echo "Listando a pasta remota autorizada..."
+          curl --fail --show-error --silent --ftp-pasv \
+            --user "$FTP_USERNAME:$FTP_PASSWORD" \
+            "ftp://$FTP_HOST/$REMOTE_PATH/" | sed -n '1,120p'
+          wget --mirror --no-host-directories --cut-dirs=1 --continue \
+            --ftp-user="$FTP_USERNAME" --ftp-password="$FTP_PASSWORD" \
+            "ftp://$FTP_HOST/$REMOTE_PATH/" -P site
           test -n "$(find site -type f -print -quit)"
           find site -type f -printf '%P\n' | sort | sed -n '1,200p'
 

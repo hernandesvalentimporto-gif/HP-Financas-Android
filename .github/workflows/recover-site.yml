@@ -31,7 +31,11 @@ jobs:
           set ftp:passive-mode true
           set ftp:ssl-force false
           set ftp:ssl-protect-data false
+          set cmd:trace true
+          debug 3
           user "$FTP_USERNAME" "$FTP_PASSWORD"
+          pwd
+          ls -la
           mirror --verbose --continue --no-perms "$REMOTE_PATH" site
           bye
           LFTP

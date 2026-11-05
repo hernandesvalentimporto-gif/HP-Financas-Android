@@ -13,7 +13,7 @@ jobs:
       FTP_HOST: ftp.sistemashp.com.br
       FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-      REMOTE_PATH: public_html/controle_pessoal
+      REMOTE_PATH: controle_pessoal
     steps:
       - name: Instalar cliente FTP
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
